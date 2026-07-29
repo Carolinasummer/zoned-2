@@ -53,7 +53,7 @@ export default function DashboardPage() {
 
   async function handleEdit(form: { title: string; description: string; project: string; difficulty: "easy"|"medium"|"hard"|"epic" }) {
     if (!editTask) return;
-    await updateTask(editTask.id, {
+    await updateTask((editTask as any)?.id, {
       title: form.title,
       description: form.description || null,
       project: form.project || null,
