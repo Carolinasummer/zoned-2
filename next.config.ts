@@ -1,30 +1,6 @@
 import type { NextConfig } from "next";
 
-const config: NextConfig = {
-  experimental: {
-    reactCompiler: true,
-  },
-  import type { NextConfig } from "next";
-
-const config: NextConfig = {
-  experimental: {
-    reactCompiler: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-};
-
-export default config;
-};
-
-export default config;
-import type { NextConfig } from "next";
-
-const config: NextConfig = {
-  experimental: {
-    reactCompiler: true,
-  },
+const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -33,4 +9,4 @@ const config: NextConfig = {
   },
 };
 
-export default config;
+export default nextConfig;
