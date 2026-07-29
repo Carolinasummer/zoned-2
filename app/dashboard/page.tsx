@@ -1,4 +1,5 @@
- // @ts-nocheck "use client";
+ // @ts-nocheck 
+ // "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, logout } from "@/lib/auth";
