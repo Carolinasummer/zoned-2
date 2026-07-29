@@ -69,7 +69,7 @@ export default function DashboardPage() {
   async function handleDelete(id: string) {
     if (!confirm("Видалити задачу?")) return;
     await deleteTask(id);
-    setTasks(t => t.filter(x => x.id !== id));
+    setTasks((t: any) => t.filter((x: any) => x.id !== id));
   }
 
   async function handleComplete(task: Task) {
