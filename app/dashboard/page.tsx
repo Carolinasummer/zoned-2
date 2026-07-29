@@ -1,8 +1,9 @@
 "use client";
+
  // @ts-nocheck
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getUser, logouіt } from "@/lib/auth";
+import { getUser, logout } from "@/lib/auth";
 import { getTasks, createTask, updateTask, deleteTask, completeTask } from "@/lib/tasks";
 import { getUserProfile, xpProgress } from "@/lib/user";
 import { TaskModal } from "@/components/TaskModal";
