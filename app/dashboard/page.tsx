@@ -72,7 +72,7 @@ export default function DashboardPage() {
     setTasks((t: any) => t.filter((x: any) => x.id !== id));
   }
 
-  async function handleComplete(task: Task) {
+  async function handleComplete(task: any) {
     if (!user || task.status === "done") return;
     await completeTask(task.id, task.xp_reward ?? 50, user.id);
     await loadData(user.id);
