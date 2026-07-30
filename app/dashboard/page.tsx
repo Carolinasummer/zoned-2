@@ -1,227 +1,198 @@
 "use client";
 
- // @ts-nocheck
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, logout } from "@/lib/auth";
 import { getTasks, createTask, updateTask, deleteTask, completeTask } from "@/lib/tasks";
 import { getUserProfile, xpProgress } from "@/lib/user";
 import { TaskModal } from "@/components/TaskModal";
-import { TaskCard } from "@/components/TaskCard";
-import type { User } from "@supabase/supabase-js";
-
-type Task = Awaited<ReturnType<typeof getTasks>>[number];
-type Filter = "all" | "active" | "done";
-
-const XP_MAP = { easy: 50, medium: 100, hard: 200, epic: 400 };
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{xp_total:number;level:number;username:string|null} | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [showModal, setShowModal] = useState(false);
-  const [editTask, setEditTask] = useState<Task | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [filter, setFilter] = useState<string>("all");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [editTask, setEditTask] = useState<any>(null);
 
   const loadData = useCallback(async (userId: string) => {
-    const [t, p] = await Promise.all([getTasks(userId), getUserProfile(userId)]);
-    setTasks(t);
-    setProfile(p);
+    try {
+      const [prof, tks] = await Promise.all([
+        getUserProfile(userId),
+        getTasks(userId),
+      ]);
+      setProfile(prof);
+      setTasks(tks || []);
+    } catch (e) {
+      console.error(e);
+    }
   }, []);
 
   useEffect(() => {
-    getUser().then(u => {
-      if (!u) { router.push("/login"); return; }
+    async function init() {
+      const u = await getUser();
+      if (!u) {
+        router.push("/auth");
+        return;
+      }
       setUser(u);
-      loadData(u.id).finally(() => setLoading(false));
-    });
+      await loadData(u.id);
+      setLoading(false);
+    }
+    init();
   }, [router, loadData]);
 
-  async function handleCreate(form: { title: string; description: string; project: string; difficulty: "easy"|"medium"|"hard"|"epic" }) {
+  async function handleLogout() {
+    await logout();
+    router.push("/auth");
+  }
+
+  async function handleCreateTask(form: { title: string; description: string; project: string; difficulty: "easy" | "medium" | "hard" | "epic" }) {
     if (!user) return;
-    await createTask({
+    const newTask = await createTask({
       user_id: user.id,
       title: form.title,
       description: form.description || null,
       project: form.project || null,
       difficulty: form.difficulty,
-      xp_reward: XP_MAP[form.difficulty],
-      status: "active",
     });
-    await loadData(user.id);
+    if (newTask) setTasks((prev: any[]) => [newTask, ...prev]);
   }
 
-  async function handleEdit(form: { title: string; description: string; project: string; difficulty: "easy"|"medium"|"hard"|"epic" }) {
+  async function handleEdit(form: { title: string; description: string; project: string; difficulty: "easy" | "medium" | "hard" | "epic" }) {
     if (!editTask) return;
-    await updateTask((editTask as any)?.id, {
+    const updated = await updateTask((editTask as any)?.id, {
       title: form.title,
       description: form.description || null,
       project: form.project || null,
       difficulty: form.difficulty,
-      xp_reward: XP_MAP[form.difficulty],
     });
-    await loadData(user!.id);
-    setEditTask(null);
+    if (updated) {
+      setTasks((prev: any[]) => prev.map((t: any) => (t.id === updated.id ? updated : t)));
+    }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Видалити задачу?")) return;
     await deleteTask(id);
-    setTasks((t: any) => t.filter((x: any) => x.id !== id));
+    setTasks((prev: any[]) => prev.filter((x: any) => x.id !== id));
   }
 
   async function handleComplete(task: any) {
-    if (!user || task.status === "done") return;
-    await completeTask(task.id, task.xp_reward ?? 50, user.id);
+    if (!user || task?.status === "done") return;
+    await completeTask(task?.id, task?.xp_reward ?? 50);
     await loadData(user.id);
   }
 
-  const filtered = tasks.filter(t => {
+  const filtered = tasks.filter((t: any) => {
     if (filter === "active") return t.status !== "done";
     if (filter === "done") return t.status === "done";
     return true;
   });
 
-  const progress = profile ? xpProgress(profile.xp_total, profile.level) : 0;
-  const doneTasks = tasks.filter(t => t.status === "done").length;
+  const progress = profile ? xpProgress(profile.xp, profile.level) : { current: 0, needed: 100, percent: 0 };
 
-  if (loading) return (
-    <main style={{display:"flex",minHeight:"100vh",alignItems:"center",justifyContent:"center"}}>
-      <p style={{color:"#a0a0c0",fontSize:"13px"}}>Завантаження...</p>
-    </main>
-  );
+  if (loading) return <div className="p-8 text-center text-zinc-400">Завантаження...</div>;
 
   return (
-    <main style={{minHeight:"100vh",padding:"24px 20px"}}>
-
-      {/* NAVBAR */}
-      <nav style={{
-        display:"flex",alignItems:"center",justifyContent:"space-between",
-        background:"rgba(255,255,255,0.38)",border:"0.5px solid rgba(255,255,255,0.6)",
-        backdropFilter:"blur(16px)",borderRadius:"14px",padding:"12px 20px",
-        marginBottom:"24px",maxWidth:"860px",margin:"0 auto 24px"
-      }}>
-        <span style={{fontFamily:"Georgia,serif",fontSize:"17px",color:"#5a5a8a"}}>Zoned</span>
-        <div style={{display:"flex",alignItems:"center",gap:"16px"}}>
-          <span style={{fontSize:"12px",color:"#9090b8"}}>{user?.email}</span>
-          <button onClick={() => logout().then(() => router.push("/"))} style={{
-            fontSize:"12px",color:"#a0a0c0",background:"rgba(255,255,255,0.4)",
-            border:"0.5px solid rgba(180,180,220,0.3)",borderRadius:"20px",
-            padding:"5px 14px",cursor:"pointer"
-          }}>Вийти</button>
-        </div>
-      </nav>
-
-      <div style={{maxWidth:"860px",margin:"0 auto"}}>
-
-        {/* XP CARD */}
-        <div style={{
-          background:"rgba(255,255,255,0.42)",border:"0.5px solid rgba(255,255,255,0.75)",
-          backdropFilter:"blur(20px)",borderRadius:"16px",padding:"20px 24px",
-          marginBottom:"16px",display:"flex",alignItems:"center",gap:"24px"
-        }}>
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <header className="flex justify-between items-center border-b border-zinc-800 pb-4">
           <div>
-            <p style={{fontSize:"11px",color:"#a0a0c0",marginBottom:"2px",letterSpacing:"0.05em",textTransform:"uppercase"}}>Рівень</p>
-            <p style={{fontFamily:"Georgia,serif",fontSize:"28px",color:"#6868a8",lineHeight:1}}>{profile?.level ?? 1}</p>
+            <h1 className="text-2xl font-bold">Дашборд</h1>
+            <p className="text-zinc-400 text-sm">{user?.email}</p>
           </div>
-          <div style={{flex:1}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:"5px"}}>
-              <span style={{fontSize:"11px",color:"#9090b8"}}>
-                Привіт, {profile?.username ?? user?.email?.split("@")[0]}!
-              </span>
-              <span style={{fontSize:"11px",color:"#a0a0c0"}}>{profile?.xp_total ?? 0} XP</span>
-            </div>
-            <div style={{height:"5px",background:"rgba(200,200,230,0.25)",borderRadius:"4px",overflow:"hidden"}}>
-              <div style={{
-                width:`${progress}%`,height:"100%",borderRadius:"4px",
-                background:"linear-gradient(90deg,rgba(175,195,235,0.8),rgba(205,180,225,0.7))",
-                transition:"width .5s ease"
-              }}/>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",marginTop:"5px"}}>
-              <span style={{fontSize:"10px",color:"#b0b0c8"}}>до рівня {(profile?.level ?? 1) + 1}</span>
-              <span style={{fontSize:"10px",color:"#b0b0c8"}}>{doneTasks} задач виконано</span>
-            </div>
-          </div>
-        </div>
+          <button onClick={handleLogout} className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg">
+            Вийти
+          </button>
+        </header>
 
-        {/* TASKS HEADER */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"12px"}}>
-          <div style={{display:"flex",gap:"6px"}}>
-            {(["all","active","done"] as Filter[]).map(f => (
-              <button key={f} onClick={() => setFilter(f)} style={{
-                fontSize:"12px",padding:"5px 14px",borderRadius:"20px",cursor:"pointer",
-                fontWeight: filter===f ? "500" : "300",
-                color: filter===f ? "#6868a8" : "#a0a0c0",
-                background: filter===f ? "rgba(200,200,240,0.35)" : "rgba(255,255,255,0.3)",
-                border: filter===f ? "0.5px solid rgba(160,160,220,0.4)" : "0.5px solid transparent",
-                transition:"all .2s"
-              }}>
-                {{all:"Всі",active:"Активні",done:"Виконані"}[f]}
-                <span style={{marginLeft:"5px",fontSize:"10px",opacity:0.6}}>
-                  {f==="all" ? tasks.length : f==="done" ? tasks.filter(t=>t.status==="done").length : tasks.filter(t=>t.status!=="done").length}
-                </span>
+        {profile && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col gap-2">
+            <div className="flex justify-between text-sm">
+              <span>Рівень: {profile.level}</span>
+              <span>{progress.current} / {progress.needed} XP</span>
+            </div>
+            <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+              <div className="bg-indigo-500 h-full transition-all duration-300" style={{ width: `${progress.percent}%` }} />
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-between items-center gap-4">
+          <div className="flex gap-2">
+            {["all", "active", "done"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-sm capitalize ${filter === f ? "bg-indigo-600 text-white" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"}`}
+              >
+                {f === "all" ? "Всі" : f === "active" ? "Активні" : "Виконані"}
               </button>
             ))}
           </div>
-          <button onClick={() => setShowModal(true)} style={{
-            fontSize:"13px",fontWeight:"500",color:"#5a5a88",cursor:"pointer",
-            background:"linear-gradient(135deg,rgba(255,205,185,0.55) 0%,rgba(185,225,245,0.55) 100%)",
-            borderRadius:"30px",padding:"8px 20px",border:"none",
-            boxShadow:"0 0 16px rgba(180,210,245,0.3),inset 0 0 10px rgba(255,255,255,0.5)",
-            outline:"0.5px solid rgba(255,255,255,0.75)"
-          }}>
+
+          <button
+            onClick={() => {
+              setEditTask(null);
+              setIsModalOpen(true);
+            }}
+            className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 font-medium rounded-lg"
+          >
             + Нова задача
           </button>
         </div>
 
-        {/* TASK LIST */}
-        {filtered.length === 0 ? (
-          <div style={{
-            background:"rgba(255,255,255,0.38)",border:"0.5px solid rgba(255,255,255,0.7)",
-            backdropFilter:"blur(16px)",borderRadius:"16px",padding:"48px",textAlign:"center"
-          }}>
-            <p style={{fontSize:"24px",marginBottom:"8px"}}>✦</p>
-            <p style={{fontSize:"13px",color:"#9090b8",fontWeight:"300"}}>
-              {filter==="done" ? "Ще немає виконаних задач" : "Додай свою першу задачу"}
-            </p>
-          </div>
-        ) : (
-          <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
-            {filtered.map(task => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onEdit={() => setEditTask(task)}
-                onDelete={() => handleDelete(task.id)}
-                onComplete={() => handleComplete(task)}
-              />
-            ))}
-          </div>
-        )}
+        <div className="space-y-3">
+          {filtered.length === 0 ? (
+            <p className="text-center text-zinc-500 py-8">Немає задач</p>
+          ) : (
+            filtered.map((t: any) => (
+              <div key={t.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={t.status === "done"}
+                    onChange={() => handleComplete(t)}
+                    className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                  />
+                  <div>
+                    <h3 className={`font-medium ${t.status === "done" ? "line-through text-zinc-500" : ""}`}>{t.title}</h3>
+                    {t.description && <p className="text-sm text-zinc-400">{t.description}</p>}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditTask(t);
+                      setIsModalOpen(true);
+                    }}
+                    className="text-xs px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-md text-zinc-300"
+                  >
+                    Редагувати
+                  </button>
+                  <button
+                    onClick={() => handleDelete(t.id)}
+                    className="text-xs px-2.5 py-1.5 bg-red-950/50 hover:bg-red-900/50 text-red-400 rounded-md"
+                  >
+                    Видалити
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
-      {/* MODALS */}
-      {showModal && (
-        <TaskModal
-          onClose={() => setShowModal(false)}
-          onSave={handleCreate}
-        />
-      )}
-      {editTask && (
-        <TaskModal
-          onClose={() => setEditTask(null)}
-          onSave={handleEdit}
-          initial={{
-            title: editTask.title,
-            description: editTask.description ?? "",
-            project: editTask.project ?? "",
-            difficulty: (editTask.difficulty as "easy"|"medium"|"hard"|"epic") ?? "medium",
-          }}
-        />
-      )}
-    </main>
+      <TaskModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={editTask ? handleEdit : handleCreateTask}
+        initialData={editTask}
+      />
+    </div>
   );
 }
