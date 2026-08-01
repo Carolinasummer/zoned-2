@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { TimerProvider } from "@/contexts/TimerContext";
 
 export const metadata: Metadata = {
   title: "Zoned",
@@ -23,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="orb orb-4" />
         </div>
         <div className="relative z-10">
-          {children}
+          <TimerProvider>{children}</TimerProvider>
         </div>
       </body>
     </html>

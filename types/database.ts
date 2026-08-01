@@ -15,8 +15,8 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["tasks"]["Insert"]>;
       };
       timer_sessions: {
-        Row: { id: string; task_id: string; user_id: string; started_at: string; ended_at: string | null; duration: number | null };
-        Insert: { id?: string; task_id: string; user_id: string; started_at?: string; ended_at?: string | null; duration?: number | null };
+        Row: { id: string; task_id: string | null; user_id: string; started_at: string; ended_at: string | null; duration: number | null; mode: "pomodoro" | "stopwatch"; phase: "work" | "break"; xp_awarded: number };
+        Insert: { id?: string; task_id?: string | null; user_id: string; started_at?: string; ended_at?: string | null; duration?: number | null; mode?: "pomodoro" | "stopwatch"; phase?: "work" | "break"; xp_awarded?: number };
         Update: Partial<Database["public"]["Tables"]["timer_sessions"]["Insert"]>;
       };
     };

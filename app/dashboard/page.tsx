@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getUser, logout } from "@/lib/auth";
 import { getTasks, createTask, updateTask, deleteTask, completeTask } from "@/lib/tasks";
 import { getUserProfile, xpProgress } from "@/lib/user";
 import { TaskModal } from "@/components/TaskModal";
+import { TimerWidget } from "@/components/TimerWidget";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -34,7 +36,7 @@ export default function DashboardPage() {
     async function init() {
       const u = await getUser();
       if (!u) {
-        router.push("/auth");
+        router.push("/login");
         return;
       }
       setUser(u);
@@ -46,7 +48,7 @@ export default function DashboardPage() {
 
   async function handleLogout() {
     await logout();
-    router.push("/auth");
+    router.push("/login");
   }
 
   async function handleCreateTask(form: { title: string; description: string; project: string; difficulty: "easy" | "medium" | "hard" | "epic" }) {
@@ -82,7 +84,7 @@ export default function DashboardPage() {
 
   async function handleComplete(task: any) {
     if (!user || task?.status === "done") return;
-    await completeTask(task?.id, task?.xp_reward ?? 50);
+    await completeTask(task?.id, task?.xp_reward ?? 50, user.id);
     await loadData(user.id);
   }
 
@@ -92,7 +94,13 @@ export default function DashboardPage() {
     return true;
   });
 
-  const progress = profile ? xpProgress(profile.xp, profile.level) : { current: 0, needed: 100, percent: 0 };
+  const progress = profile
+    ? {
+        percent: xpProgress(profile.xp_total, profile.level),
+        current: profile.xp_total - (profile.level - 1) * 500,
+        needed: 500,
+      }
+    : { current: 0, needed: 500, percent: 0 };
 
   if (loading) return <div className="p-8 text-center text-zinc-400">Завантаження...</div>;
 
@@ -104,9 +112,14 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold">Дашборд</h1>
             <p className="text-zinc-400 text-sm">{user?.email}</p>
           </div>
-          <button onClick={handleLogout} className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg">
-            Вийти
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href="/timer" className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 rounded-lg">
+              ⏱️ Таймер
+            </Link>
+            <button onClick={handleLogout} className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg">
+              Вийти
+            </button>
+          </div>
         </header>
 
         {profile && (
@@ -187,12 +200,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <TaskModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={editTask ? handleEdit : handleCreateTask}
-        initialData={editTask}
-      />
+      {isModalOpen && (
+        <TaskModal
+          onClose={() => setIsModalOpen(false)}
+          onSave={editTask ? handleEdit : handleCreateTask}
+          initial={editTask ?? undefined}
+        />
+      )}
+
+      <TimerWidget userId={user?.id} />
     </div>
   );
 }
